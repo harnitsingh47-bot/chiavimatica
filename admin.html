@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Chiavimatica — Gestione recensioni (admin)</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyCaNq1U25X9pmPdNvjTG5lgUR5-6jQKor8",
+    authDomain: "chiavimatica.firebaseapp.com",
+    projectId: "chiavimatica",
+    storageBucket: "chiavimatica.firebasestorage.app",
+    messagingSenderId: "188580522369",
+    appId: "1:188580522369:web:94e136632ff965c13fa080"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+  var db = firebase.firestore();
+</script>
+<style>
+  :root{
+    --navy:#1B2430; --cream:#F5F3EE; --orange:#C24E2A; --orange-dim:#a3421f;
+    --steel:#8A94A6; --green:#2E7D5B; --danger:#C24E2A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:#E4E1D9; color:var(--navy);
+    font-family:-apple-system,"Inter","Helvetica Neue",Arial,sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:40px 20px;}
+  h1{font-size:24px; font-weight:800; margin:0 0 6px;}
+  .sub{color:var(--steel); font-size:14px; margin:0 0 28px;}
+
+  #login-box{
+    background:#fff; border-radius:16px; padding:28px; max-width:360px; margin:60px auto 0;
+    box-shadow:0 8px 24px rgba(27,36,48,0.12);
+  }
+  #login-box label{font-size:12.5px; font-weight:700; display:block; margin-bottom:5px;}
+  #login-box input{
+    width:100%; padding:11px 13px; border-radius:10px; border:1.5px solid rgba(27,36,48,0.16);
+    font-size:14px; margin-bottom:14px; font-family:inherit;
+  }
+  #login-box button{
+    width:100%; background:var(--orange); color:#fff; border:none; padding:12px;
+    border-radius:999px; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  #login-box button:hover{background:var(--orange-dim);}
+  #login-error{color:var(--danger); font-size:13px; margin-top:8px; min-height:16px;}
+
+  #dashboard{display:none;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:22px;}
+  .logout-btn{
+    background:none; border:1px solid rgba(27,36,48,0.2); color:var(--navy);
+    padding:8px 16px; border-radius:999px; font-size:13px; cursor:pointer; font-family:inherit;
+  }
+
+  .add-box{
+    background:#fff; border-radius:16px; padding:22px; margin-bottom:30px;
+    box-shadow:0 4px 14px rgba(27,36,48,0.08);
+  }
+  .add-box h3{margin:0 0 14px; font-size:16px;}
+  .add-box label{font-size:12.5px; font-weight:700; display:block; margin-bottom:5px;}
+  .add-box input, .add-box textarea{
+    width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid rgba(27,36,48,0.14);
+    font-size:14px; font-family:inherit; margin-bottom:12px;
+  }
+  .star-picker{display:flex; gap:6px; margin-bottom:14px;}
+  .star-picker button{
+    background:none; border:none; cursor:pointer; padding:2px; font-size:26px; line-height:1;
+    color:rgba(27,36,48,0.22);
+  }
+  .star-picker button.selected{color:#E8A93A;}
+  .add-box .submit-btn{
+    background:var(--green); color:#fff; border:none; padding:11px 20px; border-radius:999px;
+    font-weight:700; font-size:14px; cursor:pointer;
+  }
+
+  .review-row{
+    background:#fff; border-radius:14px; padding:16px 18px; margin-bottom:12px;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
+    box-shadow:0 3px 10px rgba(27,36,48,0.06);
+  }
+  .review-row .stars{color:#E8A93A; font-size:15px; margin-bottom:4px;}
+  .review-row p{margin:0 0 6px; font-size:14px; line-height:1.5;}
+  .review-row .author{font-size:12.5px; color:var(--steel);}
+  .review-row .delete-btn{
+    background:none; border:1px solid rgba(194,78,42,0.4); color:var(--danger);
+    padding:7px 13px; border-radius:999px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+    font-family:inherit;
+  }
+  .review-row .delete-btn:hover{background:rgba(194,78,42,0.08);}
+  #empty-msg{color:var(--steel); font-size:14px; text-align:center; padding:30px 0;}
+</style>
+</head>
+<body>
+
+<div id="login-box">
+  <h1 style="font-size:18px;">Accesso admin</h1>
+  <p class="sub" style="margin-bottom:18px;">Solo tu puoi entrare qui.</p>
+  <label for="login-email">Email</label>
+  <input id="login-email" type="email" autocomplete="username">
+  <label for="login-password">Password</label>
+  <input id="login-password" type="password" autocomplete="current-password">
+  <button type="button" onclick="fareLogin()">Entra</button>
+  <div id="login-error"></div>
+</div>
+
+<div class="wrap" id="dashboard">
+  <div class="topbar">
+    <div>
+      <h1>Gestione recensioni</h1>
+      <p class="sub">Aggiungi o rimuovi le recensioni mostrate sul sito.</p>
+    </div>
+    <button class="logout-btn" onclick="auth.signOut()">Esci</button>
+  </div>
+
+  <div class="add-box">
+    <h3>Aggiungi una recensione manualmente</h3>
+    <label for="add-nome">Nome cliente</label>
+    <input id="add-nome" type="text" placeholder="Es. Luca, Roma">
+    <label>Stelle</label>
+    <div class="star-picker" id="add-star-picker">
+      <button type="button" data-value="1">★</button>
+      <button type="button" data-value="2">★</button>
+      <button type="button" data-value="3">★</button>
+      <button type="button" data-value="4">★</button>
+      <button type="button" data-value="5">★</button>
+    </div>
+    <label for="add-messaggio">Testo recensione</label>
+    <textarea id="add-messaggio" rows="3"></textarea>
+    <button class="submit-btn" onclick="aggiungiRecensione()">Pubblica sul sito</button>
+    <div id="add-note" style="font-size:13px; margin-top:8px;"></div>
+  </div>
+
+  <div id="reviews-container"></div>
+  <div id="empty-msg" style="display:none;">Nessuna recensione ancora.</div>
+</div>
+
+<script>
+  function setAddStars(value){
+    document.querySelectorAll('#add-star-picker button').forEach(function(btn){
+      var v = parseInt(btn.getAttribute('data-value'), 10);
+      btn.classList.toggle('selected', v <= value);
+    });
+    document.getElementById('add-star-picker').setAttribute('data-selected', value);
+  }
+  document.querySelectorAll('#add-star-picker button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      setAddStars(parseInt(btn.getAttribute('data-value'), 10));
+    });
+  });
+
+  function fareLogin(){
+    var email = document.getElementById('login-email').value.trim();
+    var pass = document.getElementById('login-password').value;
+    var errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+    auth.signInWithEmailAndPassword(email, pass).catch(function(err){
+      errEl.textContent = 'Email o password non corretti.';
+    });
+  }
+
+  var unsubscribe = null;
+
+  auth.onAuthStateChanged(function(user){
+    if(user){
+      document.getElementById('login-box').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      caricaRecensioni();
+    } else {
+      document.getElementById('login-box').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+      if(unsubscribe){ unsubscribe(); unsubscribe = null; }
+    }
+  });
+
+  function caricaRecensioni(){
+    if(unsubscribe) return;
+    unsubscribe = db.collection('reviews').orderBy('timestamp', 'desc').onSnapshot(function(snapshot){
+      var container = document.getElementById('reviews-container');
+      var emptyMsg = document.getElementById('empty-msg');
+      container.innerHTML = '';
+      if(snapshot.empty){
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+      snapshot.forEach(function(doc){
+        var r = doc.data();
+        var starsStr = '★★★★★'.slice(0, r.stars || 0);
+        var row = document.createElement('div');
+        row.className = 'review-row';
+        row.innerHTML =
+          '<div>' +
+            '<div class="stars">' + starsStr + '</div>' +
+            '<p>' + String(r.messaggio || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>' +
+            '<div class="author">— ' + String(r.nome || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') +
+              (r.contatto ? ' · ' + String(r.contatto).replace(/</g,'&lt;').replace(/>/g,'&gt;') : '') +
+            '</div>' +
+          '</div>' +
+          '<button class="delete-btn" data-id="' + doc.id + '">Elimina</button>';
+        container.appendChild(row);
+      });
+      container.querySelectorAll('.delete-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          if(confirm('Eliminare questa recensione dal sito?')){
+            db.collection('reviews').doc(btn.getAttribute('data-id')).delete();
+          }
+        });
+      });
+    });
+  }
+
+  function aggiungiRecensione(){
+    var nome = document.getElementById('add-nome').value.trim();
+    var messaggio = document.getElementById('add-messaggio').value.trim();
+    var selectedAttr = document.getElementById('add-star-picker').getAttribute('data-selected');
+    var stars = selectedAttr ? parseInt(selectedAttr, 10) : 0;
+    var noteEl = document.getElementById('add-note');
+
+    if(!nome || !stars || !messaggio){
+      noteEl.textContent = 'Compila nome, stelle e testo prima di pubblicare.';
+      noteEl.style.color = '#C24E2A';
+      return;
+    }
+
+    db.collection('reviews').add({
+      nome: nome,
+      stars: stars,
+      messaggio: messaggio,
+      contatto: '',
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function(){
+      document.getElementById('add-nome').value = '';
+      document.getElementById('add-messaggio').value = '';
+      setAddStars(0);
+      noteEl.textContent = 'Recensione pubblicata sul sito.';
+      noteEl.style.color = '#2E7D5B';
+    }).catch(function(err){
+      noteEl.textContent = 'Errore: ' + err.message;
+      noteEl.style.color = '#C24E2A';
+    });
+  }
+</script>
+</body>
+</html>
